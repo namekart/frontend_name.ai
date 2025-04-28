@@ -19,10 +19,16 @@ export default function SearchBar() {
         />
 
         <div className="self-end flex gap-x-4 items-center">
-          <button className="hover:brightness-80 active:brightness-90 cursor-pointer">
+          <button
+            className="hover:brightness-80 active:brightness-90 cursor-pointer"
+            aria-label="attach file"
+          >
             <PaperclipIcon width={20} height={20} />
           </button>
-          <button className="bg-button-background rounded-full p-2 cursor-pointer hover:brightness-80 active:brightness-90">
+          <button
+            className="bg-button-background rounded-full p-2 cursor-pointer hover:brightness-80 active:brightness-90"
+            aria-label="send message"
+          >
             <Image width={18} height={18} src={SendIcon} alt="send icon" />
           </button>
         </div>
