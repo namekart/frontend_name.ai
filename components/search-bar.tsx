@@ -5,9 +5,22 @@ import Image from "next/image";
 import { SUGGESTIONS } from "@/data/searchbar-suggestions";
 import { Paperclip as PaperclipIcon } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SearchBar() {
   const [query, setQuery] = useState("");
+  const router = useRouter();
+
+  const handleSubmit = () => {
+    if (!query.trim()) return;
+
+    // Create a unique ID for this chat session
+    const chatId = Date.now().toString();
+
+    // Redirect to the chat page with the query and chatId
+    router.replace(`/chat/${chatId}?query=${encodeURIComponent(query)}`);
+  };
+
   return (
     <div className="flex flex-col gap-y-4">
       <div className="flex flex-col items-end  py-4 justify-center dark:bg-input rounded-lg p-3">
@@ -16,6 +29,12 @@ export default function SearchBar() {
           placeholder="Describe your idea.."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit();
+            }
+          }}
         />
 
         <div className="self-end flex gap-x-4 items-center">
@@ -28,6 +47,7 @@ export default function SearchBar() {
           <button
             className="bg-button-background rounded-full p-2 cursor-pointer hover:brightness-80 active:brightness-90"
             aria-label="send message"
+            onClick={handleSubmit}
           >
             <Image width={18} height={18} src={SendIcon} alt="send icon" />
           </button>

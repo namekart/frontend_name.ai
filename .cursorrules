@@ -24,6 +24,8 @@ Standard.js Rules
 - Always handle the err function parameter.
 - Use camelcase for variables and functions.
 - Use PascalCase for constructors and React components.
+- Try to use tailwindcss and its plugins wherever possible and avoid writing raw css.
+- Don't put the raw css in the tsx file. Only put it in the global.css and put the class or id in the tsx file.
 
 Naming Conventions
 
