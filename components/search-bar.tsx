@@ -6,24 +6,32 @@ import { SUGGESTIONS } from "@/data/searchbar-suggestions";
 import { Paperclip as PaperclipIcon } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCreateSession } from "@/lib/queries/chat-queries";
 
 export default function SearchBar() {
   const [query, setQuery] = useState("");
   const router = useRouter();
+  const { mutate: createSession, isPending } = useCreateSession();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!query.trim()) return;
-
-    // Create a unique ID for this chat session
-    const chatId = Date.now().toString();
-
-    // Redirect to the chat page with the query and chatId
-    router.replace(`/chat/${chatId}?query=${encodeURIComponent(query)}`);
+    try {
+      createSession(query.trim(), {
+        onSuccess: (session) => {
+          router.push(`/chat/${session.session_id}?query=${encodeURIComponent(query.trim())}`);
+        },
+        onError: (error) => {
+          console.error(error);
+        }
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
     <div className="flex flex-col gap-y-4">
-      <div className="flex flex-col items-end  py-4 justify-center dark:bg-input rounded-lg p-3">
+      <div className="flex flex-col items-end py-4 justify-center dark:bg-input rounded-lg p-3">
         <Textarea
           className="w-full font-light resize-none px-3 max-h-[250px] overflow-y-auto origin-top"
           placeholder="Describe your idea.."
@@ -48,13 +56,14 @@ export default function SearchBar() {
             className="bg-button-background rounded-full p-2 cursor-pointer hover:brightness-80 active:brightness-90"
             aria-label="send message"
             onClick={handleSubmit}
+            disabled={isPending}
           >
             <Image width={18} height={18} src={SendIcon} alt="send icon" />
           </button>
         </div>
       </div>
 
-      <div className="dark:bg-input px-6 py-4 rounded-lg ">
+      <div className="dark:bg-input px-6 py-4 rounded-lg">
         <p className="font-light text-muted-foreground text-base">
           Not sure what to write? Try one of these:
         </p>

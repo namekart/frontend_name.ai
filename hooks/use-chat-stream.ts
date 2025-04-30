@@ -1,181 +1,145 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { useState, useEffect, useRef } from 'react'
+import { chat, getMessages } from '@/services/name-ai/methods'
 
-export type Message = {
-  id: string;
-  content: string;
-  role: "user" | "assistant" | "status";
-};
+type UIMessage = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
 
-type UseChatStreamProps = {
-  initialQuery?: string | null;
-  chatId?: string;
-};
+const INITIAL_MESSAGE: UIMessage = {
+  id: 'initial',
+  role: 'assistant',
+  content: "Hello! I'm your domain name assistant. Tell me about your business or project, and I'll suggest some domain names for you."
+}
 
-export function useChatStream({
-  initialQuery,
-  chatId,
-}: UseChatStreamProps = {}) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const statusMessageRef = useRef<string | null>(null);
-  const initializedRef = useRef(false);
+export function useChatStream({ initialQuery, chatId }: { initialQuery: string | null; chatId: string }) {
+  const [messages, setMessages] = useState<UIMessage[]>([INITIAL_MESSAGE])
+  const [input, setInput] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const hasFetchedRef = useRef(false)
 
-  // Initialize with welcome message and initial query if provided
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
-    // Add initial welcome message
-    setMessages([
-      {
-        id: uuidv4(),
-        content:
-          "Hello! I'm your domain name assistant. Tell me about your business or project, and I'll suggest some domain names for you.",
-        role: "assistant",
-      },
-    ]);
-
-    // Process initial query if provided
-    if (initialQuery) {
-      handleSendMessage(initialQuery);
-    }
-  }, []);
-
-  const addMessage = useCallback((content: string, role: Message["role"]) => {
-    const id = uuidv4();
-
-    if (role === "status") {
-      // If there's an existing status message, remove it first
-      if (statusMessageRef.current) {
-        setMessages((prev) =>
-          prev.filter((msg) => msg.id !== statusMessageRef.current)
-        );
-      }
-      statusMessageRef.current = id;
-    }
-
-    setMessages((prev) => [...prev, { id, content, role }]);
-    return id;
-  }, []);
-
-  const updateStatusMessage = useCallback((content: string) => {
-    if (statusMessageRef.current) {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === statusMessageRef.current ? { ...msg, content } : msg
-        )
-      );
-    }
-  }, []);
-
-  const removeStatusMessage = useCallback(() => {
-    if (statusMessageRef.current) {
-      setMessages((prev) =>
-        prev.filter((msg) => msg.id !== statusMessageRef.current)
-      );
-      statusMessageRef.current = null;
-    }
-  }, []);
-
-  const handleSendMessage = useCallback(
-    async (message: string) => {
-      if (!message.trim() || isProcessing) return;
-
-      // Add user message
-      addMessage(message, "user");
-
-      // Clear input and set processing state
-      setInput("");
-      setIsProcessing(true);
+    const fetchMessages = async () => {
+      if (hasFetchedRef.current) return
+      hasFetchedRef.current = true
 
       try {
-        // Connect directly to the backend SSE endpoint
-        const response = await fetch("http://localhost:8000/api/chat-stream", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            query: message,
-            debug: false,
-            chatId,
-          }),
-        });
+        const response = await getMessages(chatId)
+        const formattedMessages = response.messages.map(msg => ({
+          id: msg.message_id,
+          role: msg.sender as 'user' | 'assistant',
+          content: msg.content
+        }))
 
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
-        }
-
-        // Handle the SSE stream
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error("Failed to get reader from response");
-
-        const decoder = new TextDecoder();
-        let assistantResponse = "";
-        let assistantMessageId: string | null = null;
-        let firstChunkReceived = false;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            // Stream is complete, remove status message
-            removeStatusMessage();
-            break;
+        if (formattedMessages.length === 0 && initialQuery) {
+          // If no messages and we have an initial query, send it
+          const userMessage: UIMessage = {
+            id: Date.now().toString(),
+            role: 'user',
+            content: initialQuery
           }
+          setMessages(prev => [...prev, userMessage])
+          setIsProcessing(true)
 
-          // Decode the chunk and process it
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n");
+          try {
+            const response = await chat({
+              query: initialQuery,
+              chat_session_id: chatId
+            })
 
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.substring(6);
-              if (data !== "[DONE]") {
-                // Add assistant message on first data received
-                if (!firstChunkReceived) {
-                  firstChunkReceived = true;
-                  assistantMessageId = addMessage("", "assistant");
-                }
-
-                assistantResponse += data;
-
-                // Update the assistant message content in real-time
-                if (assistantMessageId) {
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, content: assistantResponse }
-                        : msg
-                    )
-                  );
-                }
-              }
+            const assistantMessage: UIMessage = {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: response.content
             }
+
+            setMessages(prev => [...prev, assistantMessage])
+          } catch (error) {
+            console.error('Failed to send initial query:', error)
+            setMessages(prev => [
+              ...prev,
+              {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: 'Sorry, I encountered an error. Please try again.'
+              }
+            ])
+          } finally {
+            setIsProcessing(false)
           }
+        }else{
+          setMessages([INITIAL_MESSAGE, ...formattedMessages])
         }
+
+
       } catch (error) {
-        console.error("Error sending message:", error);
-        // Update status message to show error
-        updateStatusMessage("Connection error. Please try again.");
-        // After a few seconds, remove the status message
-        setTimeout(() => {
-          removeStatusMessage();
-        }, 3000);
+        console.error('Failed to fetch messages:', error)
+        // Keep the initial message and allow user to continue
+        if (initialQuery) {
+          const userMessage: UIMessage = {
+            id: Date.now().toString(),
+            role: 'user',
+            content: initialQuery
+          }
+          setMessages(prev => [...prev, userMessage])
+        }
       } finally {
-        // Reset processing state
-        setIsProcessing(false);
+        setIsLoading(false)
       }
-    },
-    [isProcessing, addMessage, removeStatusMessage, updateStatusMessage, chatId]
-  );
+    }
+
+    fetchMessages()
+  }, [chatId, initialQuery])
+
+  const sendMessage = async (content: string) => {
+    if (!content.trim() || isProcessing || isLoading) return
+
+    const userMessage: UIMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setIsProcessing(true)
+
+    try {
+      const response = await chat({
+        query: content,
+        chat_session_id: chatId
+      })
+
+      const assistantMessage: UIMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: response.content
+      }
+
+      setMessages(prev => [...prev, assistantMessage])
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.'
+        }
+      ])
+    } finally {
+      setIsProcessing(false)
+    }
+  }
 
   return {
     messages,
     input,
     setInput,
     isProcessing,
-    sendMessage: handleSendMessage,
-  };
+    isLoading,
+    sendMessage
+  }
 }

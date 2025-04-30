@@ -7,18 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { SendIcon, Loader2, Bot, User } from "lucide-react";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { ChatMessageShimmer, UserMessageShimmer } from "@/components/ui/shimmer";
 
 export default function ChatPage() {
   const searchParams = useSearchParams();
   const params = useParams();
   const chatId = params.id as string;
   const initialQuery = searchParams.get("query");
-
-  const { messages, input, setInput, isProcessing, sendMessage } =
+  
+  const { messages, input, setInput, isProcessing, isLoading, sendMessage } =
     useChatStream({
       initialQuery,
       chatId,
-    });
+    })
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -26,7 +27,7 @@ export default function ChatPage() {
   // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, chatId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -34,7 +35,7 @@ export default function ChatPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isProcessing) return;
+    if (!input.trim() || isProcessing || isLoading) return;
     sendMessage(input);
   };
 
@@ -59,7 +60,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen w-full max-w-3xl">
       {/* Header */}
       {/* <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -71,8 +72,17 @@ export default function ChatPage() {
       </header> */}
 
       {/* Chat Container */}
-      <main className="flex-1 overflow-y-auto scrollbar-hide">
+      <main className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto p-4 space-y-6">
+          {isLoading ? (
+            <div className="space-y-6">
+              <ChatMessageShimmer />
+              <UserMessageShimmer />
+              <ChatMessageShimmer />
+              <UserMessageShimmer />
+            </div>
+          ) : (
+            <>
           {messages.map((message) => (
             <div
               key={message.id}
@@ -86,12 +96,6 @@ export default function ChatPage() {
                 </div>
               )}
 
-              {message.role === "status" ? (
-                <div className="text-sm text-muted-foreground bg-muted/50 px-3 py-2 rounded-lg">
-                  <Loader2 className="h-4 w-4 inline mr-2 animate-spin" />
-                  {message.content}
-                </div>
-              ) : (
                 <div
                   className={`max-w-[80%] rounded-lg overflow-hidden ${
                     message.role === "user"
@@ -107,7 +111,6 @@ export default function ChatPage() {
                     {formatMessageContent(message.content, message.role)}
                   </div>
                 </div>
-              )}
 
               {message.role === "user" && (
                 <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
@@ -129,11 +132,13 @@ export default function ChatPage() {
             </div>
           )}
           <div ref={messagesEndRef} />
+            </>
+          )}
         </div>
       </main>
 
       {/* Input Area */}
-      <footer className="border-t bg-background p-4 sticky bottom-0">
+      <footer className="border-t bg-background p-4 sticky bottom-0 ">
         <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
           <div className="relative flex items-end gap-2">
             <Textarea
@@ -141,15 +146,15 @@ export default function ChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={isLoading ? "Loading chat..." : "Type a message..."}
               className="min-h-[60px] max-h-[200px] p-4 resize-none pr-12 rounded-xl border-muted focus-visible:ring-1"
-              disabled={isProcessing}
+              disabled={isProcessing || isLoading}
             />
             <Button
               type="submit"
               size="icon"
               className="absolute right-3 bottom-3 h-8 w-8 rounded-full"
-              disabled={isProcessing || !input.trim()}
+              disabled={isProcessing || isLoading || !input.trim()}
             >
               {isProcessing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -167,15 +172,16 @@ export default function ChatPage() {
       </footer>
 
       <style jsx global>{`
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
+        @keyframes shimmer {
+          0% {
+            background-position: 200% 0;
         }
-
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .scrollbar-hide {
-          -ms-overflow-style: none; /* IE and Edge */
-          scrollbar-width: none; /* Firefox */
+          100% {
+            background-position: -200% 0;
+          }
+        }
+        .animate-shimmer {
+          animation: shimmer 2s infinite linear;
         }
       `}</style>
     </div>
