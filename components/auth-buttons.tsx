@@ -2,14 +2,7 @@
 
 import { LogIn, LogOut } from "lucide-react";
 import { Button } from "./ui/button";
-import {
-  signInGitHub,
-  logout,
-  signInGoogle,
-  signInApple,
-  signInFacebook,
-  signInMicrosoft,
-} from "@/lib/actions/auth";
+import { signInGitHub, logout } from "@/lib/actions/auth";
 
 export function SignInGitHub() {
   return (
