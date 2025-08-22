@@ -19,6 +19,11 @@ jobs:
         with:
           submodules: true
           lfs: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -30,8 +35,39 @@ jobs:
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
           app_location: "/" # App source code path
           api_location: "" # Api source code path - optional
-          output_location: "" # Built app content directory - optional
+          output_location: ".next/standalone" # Built app content directory for standalone Next.js
           ###### End of Repository/Build Configurations ######
+        env:
+          # NextAuth Environment Variables
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+
+          # GitHub OAuth
+          AUTH_GITHUB_ID: ${{ secrets.AUTH_GITHUB_ID }}
+          AUTH_GITHUB_SECRET: ${{ secrets.AUTH_GITHUB_SECRET }}
+
+          # Google OAuth
+          AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
+          AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
+
+          # Apple OAuth
+          AUTH_APPLE_ID: ${{ secrets.AUTH_APPLE_ID }}
+          AUTH_APPLE_SECRET: ${{ secrets.AUTH_APPLE_SECRET }}
+
+          # Facebook OAuth
+          AUTH_FACEBOOK_ID: ${{ secrets.AUTH_FACEBOOK_ID }}
+          AUTH_FACEBOOK_SECRET: ${{ secrets.AUTH_FACEBOOK_SECRET }}
+
+          # Microsoft OAuth
+          AUTH_MICROSOFT_ID: ${{ secrets.AUTH_MICROSOFT_ID }}
+          AUTH_MICROSOFT_SECRET: ${{ secrets.AUTH_MICROSOFT_SECRET }}
+
+          # Twitter OAuth
+          AUTH_TWITTER_ID: ${{ secrets.AUTH_TWITTER_ID }}
+          AUTH_TWITTER_SECRET: ${{ secrets.AUTH_TWITTER_SECRET }}
+
+          # API Services
+          NEXT_PUBLIC_NAME_AI_BACKEND_SERVICE_URL: ${{ secrets.NEXT_PUBLIC_NAME_AI_BACKEND_SERVICE_URL }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
