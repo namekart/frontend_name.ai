@@ -28,13 +28,16 @@ jobs:
       - name: Build application
         run: |
           bun run build
-          # Clean up unnecessary files to reduce deployment size
+          # Azure-recommended optimizations for hybrid Next.js
+          cd .next/standalone
+          # Remove dev dependencies to reduce size and improve startup
+          npm prune --omit=dev
+          # Add sharp package for image optimization (Azure recommendation)
+          npm install sharp
+          # Clean up unnecessary files
+          cd ../..
           rm -rf .next/cache
           find .next/standalone -name "*.map" -delete 2>/dev/null || true
-          # Remove documentation and license files to reduce size
-          find .next/standalone/node_modules -name "*.md" -delete 2>/dev/null || true
-          find .next/standalone/node_modules -name "LICENSE*" -delete 2>/dev/null || true
-          find .next/standalone/node_modules -name "README*" -delete 2>/dev/null || true
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
